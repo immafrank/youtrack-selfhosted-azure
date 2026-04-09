@@ -349,21 +349,32 @@ Replace the HTTP server block with:
 # Redirect HTTP to HTTPS
 server {
     listen 80;
-    server_name youtrack.yourdomain.com;
+    server_name youtrack.yourcompany.com;
     return 301 https://$server_name$request_uri;
 }
 
+# HTTPS server block
 server {
-    listen 443 ssl;
-    http2 on;
-    server_name youtrack.yourdomain.com;
+    listen 443 ssl http2;
+    server_name youtrack.yourcompany.com;
 
-    ssl_certificate /etc/letsencrypt/live/youtrack.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/youtrack.yourdomain.com/privkey.pem;
+    # SSL Certificate
+    ssl_certificate /etc/letsencrypt/live/youtrack.yourcompany.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/youtrack.yourcompany.com/privkey.pem;
+
+    # SSL Settings
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
-    add_header Strict-Transport-Security max-age=31536000;
 
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+
+    # Max upload size
+    client_max_body_size 10m;
+
+    # Main proxy location
     location / {
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Forwarded-For  $proxy_add_x_forwarded_for;
@@ -374,9 +385,10 @@ server {
         proxy_buffer_size 64k;
         client_max_body_size 10m;
         proxy_http_version 1.1;
-        proxy_pass       http://localhost:8080/;
+        proxy_pass       http://localhost:8080;
     }
 
+    # Live updates — buffering must always be off
     location /api/eventSourceBus {
         proxy_cache          off;
         proxy_buffering      off;
@@ -391,6 +403,7 @@ server {
         proxy_pass           http://localhost:8080/api/eventSourceBus;
     }
 
+    # WebSocket for script debugger
     location /debug {
         proxy_set_header     X-Forwarded-Host $http_host;
         proxy_set_header     X-Forwarded-For  $proxy_add_x_forwarded_for;
